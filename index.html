@@ -40,6 +40,14 @@ button:hover,.btn:hover{box-shadow:0 0 18px #f0444433;transform:translateY(-1px)
 .hero:after{content:"";display:block;width:100%;height:2px;margin-top:34px;background:linear-gradient(90deg,transparent,#f04444,transparent);opacity:.7}
 @media(max-width:650px){.brand{width:165px;height:64px}}
 
+
+#loginPanel[hidden], #adminPanel[hidden] { display: none !important; }
+.admin-status { color: var(--muted, #aaa); font-size: 13px; margin: 8px 0 14px; }
+.admin-game-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.admin-game-actions button { padding:8px 12px; border:1px solid var(--line); border-radius:8px; background:#171717; color:#fff; cursor:pointer; }
+.admin-game-actions button.publish { border-color:#b92c2c; }
+.login-error { color:#ff8585; font-size:13px; margin-top:8px; }
+
 </style>
 </head>
 <body>
@@ -73,69 +81,258 @@ button:hover,.btn:hover{box-shadow:0 0 18px #f0444433;transform:translateY(-1px)
     </div>
     <div class="grid" id="games"></div>
   </section>
-  <div class="notice">ملاحظة: هذه نسخة تجريبية محلية. الملفات التي تضيفها تبقى في هذا المتصفح على هذا الجهاز فقط. لجعل الموقع عاماً مع رفع مركزي وحساب مدير، ستحتاج إلى استضافة وخادم وقاعدة بيانات. أضف فقط ملفات تملك حق توزيعها أو ملفات مجانية مرخّصة.</div>
+  <div class="notice">ملاحظة: الألعاب المنشورة فقط تظهر للزوار. أضف فقط ملفات تملك حق توزيعها أو ملفات مجانية مرخّصة.</div>
 </main>
 <footer>© 2026 AMIN ROMS — مكتبة الألعاب الكلاسيكية</footer>
 
 <div class="modal" id="adminModal">
  <div class="dialog">
-  <h2>لوحة المدير</h2>
-  <p class="hint">أضف لعبة إلى مكتبتك المحلية. اختر ملف اللعبة ورابطاً خارجياً اختيارياً.</p>
-  <form id="gameForm">
-   <div class="field"><label>اسم اللعبة *</label><input id="gameName" required maxlength="70" placeholder="مثال: لعبة تجريبية"></div>
-   <div class="field"><label>الجهاز *</label><select id="platform"><option>Xbox 360</option><option>PS2</option><option>PSP</option><option>PS1</option></select></div>
-   <div class="field"><label>وصف مختصر</label><textarea id="description" maxlength="240" placeholder="اكتب وصفاً قصيراً..."></textarea></div>
-   <div class="field"><label>صورة الغلاف (اختياري)</label><input id="cover" type="file" accept="image/*"></div>
-   <div class="field"><label>ملف اللعبة (اختياري)</label><input id="gameFile" type="file"></div>
-   <div class="field"><label>رابط تحميل خارجي (اختياري)</label><input id="gameUrl" type="url" placeholder="https://..."></div>
-   <p class="hint">لا ترفع ألعاباً محمية بحقوق النشر دون إذن. انتبه: تخزين الملفات الكبيرة في المتصفح قد لا ينجح بسبب حدود المساحة.</p>
-   <div class="dialog-actions"><button class="primary" type="submit">إضافة اللعبة</button><button type="button" onclick="closeAdmin()">إغلاق</button></div>
-  </form>
-  <hr style="border-color:var(--line);margin:20px 0">
-  <button onclick="exportLibrary()">تصدير بيانات المكتبة</button>
-  <button onclick="clearLibrary()" style="color:#ff8585">حذف كل الألعاب المحلية</button>
+  <div id="loginPanel">
+   <h2>دخول المدير</h2>
+   <p class="hint">سجّل الدخول بحساب المدير الذي أضفته في Supabase Authentication.</p>
+   <form id="loginForm">
+    <div class="field"><label>البريد الإلكتروني</label><input id="loginEmail" type="email" required autocomplete="username" placeholder="admin@example.com"></div>
+    <div class="field"><label>كلمة المرور</label><input id="loginPassword" type="password" required autocomplete="current-password" placeholder="كلمة المرور"></div>
+    <div id="loginError" class="login-error" role="alert"></div>
+    <div class="dialog-actions"><button class="primary" id="loginButton" type="submit">تسجيل الدخول</button><button type="button" onclick="closeAdmin()">إغلاق</button></div>
+   </form>
+  </div>
+
+  <div id="adminPanel" hidden>
+   <h2>لوحة المدير</h2>
+   <p class="hint">أضف لعبة مرخّصاً لك بتوزيعها. الملفات تحفظ في مساحة game-files الخاصة.</p>
+   <p class="admin-status" id="adminStatus">تم التحقق من صلاحيات المدير.</p>
+   <form id="gameForm">
+    <div class="field"><label>اسم اللعبة *</label><input id="gameName" required maxlength="70" placeholder="اسم اللعبة"></div>
+    <div class="field"><label>الجهاز *</label><select id="platform"><option>Xbox 360</option><option>PS2</option><option>PSP</option><option>PS1</option></select></div>
+    <div class="field"><label>وصف مختصر</label><textarea id="description" maxlength="240" placeholder="اكتب وصفاً قصيراً..."></textarea></div>
+    <div class="field"><label>صورة الغلاف (اختياري)</label><input id="cover" type="file" accept="image/*"></div>
+    <div class="field"><label>ملف اللعبة (اختياري للمسودة)</label><input id="gameFile" type="file"></div>
+    <div class="field"><label><input id="isPublished" type="checkbox"> نشر اللعبة الآن</label></div>
+    <p class="hint">لا تنشر إلا الملفات التي تملك حق توزيعها. الحد الظاهر حالياً في إعدادات Bucket هو 50 MB للملف؛ الملفات الأكبر تحتاج ضبط حد التخزين أولاً.</p>
+    <div class="dialog-actions"><button class="primary" id="saveGameButton" type="submit">حفظ اللعبة</button><button type="button" onclick="closeAdmin()">إغلاق</button></div>
+   </form>
+   <hr style="border-color:var(--line);margin:20px 0">
+   <button type="button" onclick="signOutAdmin()">تسجيل الخروج</button>
+  </div>
  </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const DB_NAME='amin-roms-db', STORE='games';
-let db, activePlatform='all', games=[];
-function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,1);req.onupgradeneeded=()=>req.result.createObjectStore(STORE,{keyPath:'id',autoIncrement:true});req.onsuccess=()=>{db=req.result;resolve()};req.onerror=()=>reject(req.error)})}
-function allGames(){return new Promise((resolve,reject)=>{const r=db.transaction(STORE).objectStore(STORE).getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
-function addGame(g){return new Promise((resolve,reject)=>{const r=db.transaction(STORE,'readwrite').objectStore(STORE).add(g);r.onsuccess=()=>resolve();r.onerror=()=>reject(r.error)})}
-function deleteGame(id){return new Promise((resolve,reject)=>{const r=db.transaction(STORE,'readwrite').objectStore(STORE).delete(id);r.onsuccess=resolve;r.onerror=()=>reject(r.error)})}
-function setFilter(p,el){activePlatform=p;document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));el.classList.add('active');render()}
-function scrollToGames(){document.getElementById('library').scrollIntoView({behavior:'smooth'})}
-function openAdmin(){document.getElementById('adminModal').classList.add('open')}
-function closeAdmin(){document.getElementById('adminModal').classList.remove('open')}
-function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function render(){
- const q=document.getElementById('search').value.trim().toLowerCase(), sort=document.getElementById('sort').value;
- let list=games.filter(g=>(activePlatform==='all'||g.platform===activePlatform)&&(`${g.name} ${g.description} ${g.platform}`).toLowerCase().includes(q));
- if(sort==='az')list.sort((a,b)=>a.name.localeCompare(b.name,'ar'));else list.sort((a,b)=>b.id-a.id);
+const SUPABASE_URL = 'https://lxbygnymwzwltxgdyoqf.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_o-slJ9f6Yr_5YvilWoo-uQ_BWRtf7xP';
+const BUCKET = 'game-files';
+const { createClient } = window.supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+let activePlatform = 'all';
+let games = [];
+let currentSession = null;
+let isAdmin = false;
+
+function esc(s='') {
+ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function setFilter(p,el) {
+ activePlatform=p;
+ document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));
+ el.classList.add('active');
+ render();
+}
+function scrollToGames(){document.getElementById('library').scrollIntoView({behavior:'smooth'});}
+
+async function openAdmin() {
+ document.getElementById('adminModal').classList.add('open');
+ document.getElementById('loginError').textContent = '';
+ document.getElementById('loginPanel').hidden = false;
+ document.getElementById('adminPanel').hidden = true;
+ const { data } = await sb.auth.getSession();
+ currentSession = data.session;
+ if (currentSession) await verifyAdmin();
+}
+function closeAdmin(){document.getElementById('adminModal').classList.remove('open');}
+
+async function verifyAdmin() {
+ if (!currentSession) { isAdmin=false; return false; }
+ const { data, error } = await sb.rpc('is_admin');
+ if (error || data !== true) {
+  isAdmin=false;
+  await sb.auth.signOut();
+  currentSession=null;
+  document.getElementById('loginPanel').hidden=false;
+  document.getElementById('adminPanel').hidden=true;
+  document.getElementById('loginError').textContent = 'هذا الحساب ليس ضمن قائمة المديرين.';
+  return false;
+ }
+ isAdmin=true;
+ document.getElementById('loginPanel').hidden=true;
+ document.getElementById('adminPanel').hidden=false;
+ return true;
+}
+
+document.getElementById('loginForm').addEventListener('submit', async e=>{
+ e.preventDefault();
+ const button=document.getElementById('loginButton');
+ const errorBox=document.getElementById('loginError');
+ button.disabled=true;
+ errorBox.textContent='جارٍ تسجيل الدخول...';
+ const email=document.getElementById('loginEmail').value.trim();
+ const password=document.getElementById('loginPassword').value;
+ const { data, error } = await sb.auth.signInWithPassword({email,password});
+ button.disabled=false;
+ if (error) { errorBox.textContent='تعذر تسجيل الدخول. تحقق من البريد وكلمة المرور.'; return; }
+ currentSession=data.session;
+ const ok=await verifyAdmin();
+ if (ok) {
+  errorBox.textContent='';
+  await loadGames();
+ }
+});
+
+async function signOutAdmin() {
+ await sb.auth.signOut();
+ currentSession=null;
+ isAdmin=false;
+ document.getElementById('adminPanel').hidden=true;
+ document.getElementById('loginPanel').hidden=false;
+ document.getElementById('loginPassword').value='';
+ document.getElementById('loginError').textContent='تم تسجيل الخروج.';
+ await loadGames();
+}
+
+function safeFileName(name) {
+ return String(name || 'file').normalize('NFKC').replace(/[^a-zA-Z0-9._-]+/g,'_').slice(-100);
+}
+async function uploadToBucket(file, folder) {
+ const path = `${folder}/${crypto.randomUUID()}-${safeFileName(file.name)}`;
+ const { error } = await sb.storage.from(BUCKET).upload(path,file,{upsert:false,contentType:file.type || 'application/octet-stream'});
+ if (error) throw error;
+ return path;
+}
+async function signedUrl(path) {
+ if (!path) return '';
+ const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(path, 3600);
+ if (error) {
+  console.warn('Signed URL error:', error.message);
+  return '';
+ }
+ return data.signedUrl;
+}
+
+async function loadGames() {
+ const { data, error } = await sb.from('games').select('*').order('created_at',{ascending:false});
+ if (error) {
+  document.getElementById('games').innerHTML='<div class="empty">تعذر تحميل الألعاب. تحقق من اتصال Supabase وسياسات الوصول.</div>';
+  return;
+ }
+ games = await Promise.all((data || []).map(async g => ({
+  ...g,
+  coverSigned: await signedUrl(g.cover_url),
+  downloadSigned: g.is_published ? await signedUrl(g.download_url) : ''
+ })));
+ render();
+}
+
+function render() {
+ const q=document.getElementById('search').value.trim().toLowerCase();
+ const sort=document.getElementById('sort').value;
+ let list=games.filter(g=>(activePlatform==='all'||g.platform===activePlatform)&&
+  (`${g.title||''} ${g.description||''} ${g.platform||''}`).toLowerCase().includes(q));
+ if(sort==='az') list.sort((a,b)=>(a.title||'').localeCompare(b.title||'','ar'));
+ else list.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
  document.getElementById('totalCount').textContent=games.length;
  const root=document.getElementById('games');
- if(!list.length){root.innerHTML='<div class="empty">لا توجد ألعاب هنا بعد.<br>افتح لوحة المدير لإضافة أول لعبة.</div>';return}
+ if(!list.length) {
+  root.innerHTML='<div class="empty">لا توجد ألعاب منشورة هنا بعد.</div>';
+  return;
+ }
  root.innerHTML=list.map(g=>{
-  const cover=g.cover?`<img src="${URL.createObjectURL(g.cover)}" alt="">`:'<span>▶</span>';
-  let download='';
-  if(g.file)download=`<a class="btn primary" download="${esc(g.file.name)}" href="${URL.createObjectURL(g.file)}">تحميل الملف</a>`;
-  else if(g.url)download=`<a class="btn primary" target="_blank" rel="noopener" href="${esc(g.url)}">فتح رابط التحميل</a>`;
-  else download='<span class="btn" style="opacity:.55;text-align:center">لا يوجد ملف</span>';
-  return `<article class="game"><div class="cover">${cover}<span class="platform">${esc(g.platform)}</span></div><div class="info"><h3>${esc(g.name)}</h3><p>${esc(g.description||'لا يوجد وصف لهذه اللعبة.')}</p><div class="meta">${g.file?'ملف مرفق: '+esc(g.file.name):'ملف غير مرفق'}</div><div class="actions">${download}<button onclick="removeOne(${g.id})" title="حذف">حذف</button></div></div></article>`
+  const cover=g.coverSigned ? `<img src="${esc(g.coverSigned)}" alt="${esc(g.title)}">` : '<span>▶</span>';
+  const download=g.is_published && g.downloadSigned
+   ? `<a class="btn primary" target="_blank" rel="noopener" href="${esc(g.downloadSigned)}">تنزيل الملف</a>`
+   : '<span class="btn" style="opacity:.55;text-align:center">الملف غير متاح</span>';
+  const adminActions=isAdmin ? `<div class="admin-game-actions">
+   <button class="publish" onclick="togglePublish('${esc(g.id)}',${!g.is_published})">${g.is_published?'إلغاء النشر':'نشر اللعبة'}</button>
+   <button onclick="deleteCloudGame('${esc(g.id)}')">حذف</button>
+  </div>` : '';
+  return `<article class="game"><div class="cover">${cover}<span class="platform">${esc(g.platform)}</span></div>
+   <div class="info"><h3>${esc(g.title)}</h3><p>${esc(g.description||'لا يوجد وصف لهذه اللعبة.')}</p>
+   <div class="meta">${g.is_published?'منشورة':'مسودة غير منشورة'}</div>
+   <div class="actions">${download}</div>${adminActions}</div></article>`;
  }).join('');
 }
-async function removeOne(id){if(confirm('هل تريد حذف هذه اللعبة من المكتبة؟')){await deleteGame(id);await refresh()}}
-async function refresh(){games=await allGames();render()}
-document.getElementById('gameForm').addEventListener('submit',async e=>{
+
+document.getElementById('gameForm').addEventListener('submit', async e=>{
  e.preventDefault();
- const file=document.getElementById('gameFile').files[0]||null, cover=document.getElementById('cover').files[0]||null;
- const g={name:document.getElementById('gameName').value.trim(),platform:document.getElementById('platform').value,description:document.getElementById('description').value.trim(),file,cover,url:document.getElementById('gameUrl').value.trim(),created:Date.now()};
- try{await addGame(g);e.target.reset();closeAdmin();await refresh();alert('تمت إضافة اللعبة إلى المكتبة على هذا الجهاز.')}
- catch(err){alert('تعذرت إضافة الملف. قد تكون مساحة المتصفح غير كافية. جرّب ملفاً أصغر.')}
+ if(!isAdmin || !currentSession) { alert('يجب تسجيل الدخول بحساب المدير أولاً.'); return; }
+ const file=document.getElementById('gameFile').files[0]||null;
+ const cover=document.getElementById('cover').files[0]||null;
+ const publish=document.getElementById('isPublished').checked;
+ if(publish && !file) { alert('أرفق ملفاً مرخّصاً قبل نشر اللعبة.'); return; }
+ const maxBytes=50*1024*1024;
+ if(file && file.size>maxBytes) { alert('حجم الملف يتجاوز 50 MB، وهو الحد الظاهر حالياً في إعدادات Bucket.'); return; }
+ if(cover && cover.size>maxBytes) { alert('حجم صورة الغلاف يتجاوز حد 50 MB.'); return; }
+ const button=document.getElementById('saveGameButton');
+ button.disabled=true;
+ document.getElementById('adminStatus').textContent='جارٍ رفع الملفات وحفظ بيانات اللعبة...';
+ let filePath=null, coverPath=null;
+ try {
+  if(file) filePath=await uploadToBucket(file,'games');
+  if(cover) coverPath=await uploadToBucket(cover,'covers');
+  const row={
+   title:document.getElementById('gameName').value.trim(),
+   platform:document.getElementById('platform').value,
+   description:document.getElementById('description').value.trim(),
+   cover_url:coverPath,
+   download_url:filePath,
+   is_published:publish,
+   user_id:currentSession.user.id
+  };
+  const { error }=await sb.from('games').insert(row);
+  if(error) throw error;
+  e.target.reset();
+  document.getElementById('adminStatus').textContent='تم حفظ اللعبة بنجاح.';
+  await loadGames();
+  alert('تم حفظ اللعبة في Supabase.');
+ } catch(err) {
+  console.error(err);
+  const paths=[filePath,coverPath].filter(Boolean);
+  if(paths.length) await sb.storage.from(BUCKET).remove(paths);
+  document.getElementById('adminStatus').textContent='تعذر الحفظ: '+(err.message||'خطأ غير معروف');
+  alert('تعذر حفظ اللعبة. تحقق من السياسات وحجم الملف ثم حاول مجدداً.');
+ } finally { button.disabled=false; }
 });
-async function clearLibrary(){if(confirm('سيتم حذف جميع الألعاب المحفوظة في هذا المتصفح. هل أنت متأكد؟')){const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).clear();tx.oncomplete=refresh}}
-function exportLibrary(){const data=games.map(g=>({name:g.name,platform:g.platform,description:g.description,url:g.url,fileName:g.file?.name||''}));const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='amin-roms-library.json';a.click();URL.revokeObjectURL(a.href)}
-(async()=>{try{await openDB();await refresh()}catch(e){document.getElementById('games').innerHTML='<div class="empty">تعذر تشغيل التخزين المحلي. افتح الصفحة في متصفح حديث.</div>'}})();
+
+async function togglePublish(id, value) {
+ if(!isAdmin) return;
+ const { error }=await sb.from('games').update({is_published:value}).eq('id',id);
+ if(error) { alert('تعذر تغيير حالة النشر: '+error.message); return; }
+ await loadGames();
+}
+async function deleteCloudGame(id) {
+ if(!isAdmin || !confirm('هل تريد حذف سجل هذه اللعبة وملفاتها؟')) return;
+ const game=games.find(g=>g.id===id);
+ const paths=[game?.download_url,game?.cover_url].filter(Boolean);
+ if(paths.length) {
+  const {error:storageError}=await sb.storage.from(BUCKET).remove(paths);
+  if(storageError) { alert('تعذر حذف ملفات التخزين: '+storageError.message); return; }
+ }
+ const {error}=await sb.from('games').delete().eq('id',id);
+ if(error) { alert('تعذر حذف اللعبة: '+error.message); return; }
+ await loadGames();
+}
+
+sb.auth.onAuthStateChange((_event, session)=>{
+ currentSession=session;
+ if(!session) { isAdmin=false; }
+});
+
+(async()=>{
+ await loadGames();
+ const {data}=await sb.auth.getSession();
+ currentSession=data.session;
+ if(currentSession) await verifyAdmin();
+})();
 </script>
 </body>
 </html>
